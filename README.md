@@ -1,9 +1,8 @@
 # Home Assistant GTFS Realtime (rt)
 
-This project contains a new sensor that provides real-time departure data for
-local transit systems that provide gtfs feeds.
+This integration provides real-time departure data for local transit systems that provide GTFS-RT feeds. Each sensor shows minutes until the next arrival, with attributes including the next several departures, vehicle positions, and more.
 
-It is based on the excellent work that has been done previously by @zacs and @phardy.  Originally inspired by a desire to make the existing code work with realtime data for trains and buses provided by Translink in Queensland, Australia (who have unique route ids for each route/calendar combination) this version also contains a number of other improvements.
+Based on the excellent work previously done by @zacs and @phardy.
 
 ## Installation (HACS) - Recommended
 0. Have [HACS](https://hacs.xyz/) installed, this will allow you to easily update
@@ -19,66 +18,92 @@ It is based on the excellent work that has been done previously by @zacs and @ph
 
 ## Configuration
 
-Add the following to your `configuration.yaml` file:
+Configuration is done through the Home Assistant UI:
+
+1. Go to **Settings > Devices & Services > Add Integration**
+2. Search for **GTFS-Realtime**
+3. Enter your feed details:
+   - **Trip Update URL** (required) — the GTFS-RT trip updates feed URL
+   - **Vehicle Position URL** (optional) — enables live vehicle tracking on the HA map
+   - **API Key** / **X-API Key** (optional) — authentication for the feed
+   - **API Key Header Name** (optional) — custom auth header name (default: `Authorization`)
+   - **Route Delimiter** (optional) — splits route IDs at this character (useful if your provider embeds calendar IDs into route IDs)
+4. Add one or more departures to monitor:
+   - **Sensor Name** — the name shown in HA. Tip: HA generates map labels from the first letters of the first 3 words, so `1 0 7 Bus` shows as "107" on the map.
+   - **Route ID** — the GTFS route ID (if using a route delimiter, the text before the delimiter)
+   - **Stop ID** — the stop ID for the location you want ETAs for
+   - **Direction ID** (optional, default `0`) — the direction of travel from the GTFS `trips.txt` file
+   - **Icon** (optional, default `mdi:bus`) — the icon shown in HA
+
+### Managing Departures
+
+After initial setup, you can manage departures through the integration's options:
+
+1. Go to **Settings > Devices & Services > GTFS-Realtime > Configure**
+2. Choose from:
+   - **General settings** — update interval (30–600 seconds) and number of departures to display (1–10)
+   - **Manage departures** — view, edit, or remove existing departures
+   - **Add a departure** — add a new route/stop sensor
+
+### Migrating from YAML
+
+If you previously used YAML configuration (`platform: gtfs_rt` under `sensor:`), your config will be automatically imported as a config entry on the next restart. After confirming everything works, remove the YAML block from your `configuration.yaml` and restart.
+
+## Sensor Data
+
+Each sensor provides:
+
+| Attribute | Description |
+|---|---|
+| **State** | Minutes until next arrival (integer) |
+| `stop_id` | Configured stop ID |
+| `route` | Configured route ID |
+| `direction_id` | Configured direction ID |
+| `due_in` | Minutes until next arrival |
+| `due_at` | Next arrival time (HH:MM) |
+| `latitude` / `longitude` | Vehicle position (if vehicle position URL configured) |
+| `next_service` | Second departure time (HH:MM) |
+| `next_departures` | List of upcoming departures (see below) |
+
+The `next_departures` attribute is a list of the next N arrivals (configurable, default 3), each containing:
 
 ```yaml
-# Example entry for Queensland, Australia
-
-sensor:
-  - platform: gtfs_rt
-    trip_update_url: 'https://gtfsrt.api.translink.com.au/api/realtime/SEQ/TripUpdates'
-    vehicle_position_url: 'https://gtfsrt.api.translink.com.au/api/realtime/SEQ/VehiclePositions'
-    route_delimiter: '-'
-    departures:
-    - name: Ferny Grove Train
-      route: BNFG
-      stopid: 600196
-      icon: mdi:train
-      service_type: Train
-    - name: Uni Qld Ferry
-      route: NHAM
-      stopid: 319665
-      icon: mdi:ferry
-      service_type: Ferry
-    - name: 1 0 7 Bus
-      route: 107
-      stopid: 4843
-      icon: mdi:bus
-      service_type: Bus
+next_departures:
+  - departure: '14:30'
+    minutes: 5
+    latitude: 39.686
+    longitude: -104.964
+  - departure: '14:45'
+    minutes: 20
+  - departure: '15:10'
+    minutes: 45
 ```
+
+### Dashboard Examples
+
+**Markdown card showing multiple routes sorted by time:**
 
 ```yaml
-# Example entry for Long Island Rail Road, New York
-
-sensor:
-  - platform: gtfs_rt
-    trip_update_url: 'https://api-endpoint.mta.info/Dataservice/mtagtfsfeeds/lirr%2Fgtfs-lirr'
-    vehicle_position_url: 'https://api-endpoint.mta.info/Dataservice/mtagtfsfeeds/lirr%2Fgtfs-lirr'
-    x_api_key: <insert your API key here - see https://new.mta.info/developers>
-    departures:
-    - name: Bellmore Station to Penn Station
-      route: '1'
-      stopid: '16'
-      directionid: '1'
-      icon: mdi:train
-      service_type: 'train'
+type: markdown
+title: Upcoming Departures
+content: |
+  {% set ns = namespace(deps=[]) %}
+  {% for entity in [
+    'sensor.route_1',
+    'sensor.route_2',
+  ] %}
+    {% set name = state_attr(entity, 'friendly_name') %}
+    {% for dep in state_attr(entity, 'next_departures') or [] %}
+      {% set ns.deps = ns.deps + [{'name': name, 'departure': dep.departure, 'minutes': dep.minutes}] %}
+    {% endfor %}
+  {% endfor %}
+  {% set sorted_deps = ns.deps | sort(attribute='minutes') %}
+  | Route | Departs | Min |
+  |-------|---------|-----|
+  {% for dep in sorted_deps %}
+  | {{ dep.name }} | {{ dep.departure }} | {{ dep.minutes }} |
+  {% endfor %}
 ```
-
-Configuration variables:
-
-- **trip_update_url** (*Required*): Provides route etas. See the **Finding Feeds** section at the bottom of the page for more details on how to find these
-- **vehicle_position_url** (*Optional*): Provides live position tracking on the home assistant map
-- **api_key_header** (*Optional*): If provided, this key will be included in the header, along with the api_key value. In not provided, the default of "Authorization" will be used (only if and api_key value is also given)
-- **api_key** (*Optional*): If provided, this key will be sent with API requests in an "Authorization" (or whatever value is specified in api_header_key) header.
-- **x_api_key** (*Optional*): If provided, this key will be sent with API requests in an "x_api_key" header.  Being maintained for legacy support only as it could also be specified in the api_header_key value
-- **route_delimiter** (*Optional*): If provided, the text in the feed's route id before the delimiter is used as the route id.  Useful if the provider incorporates calendar ids into their route ids.1
-- **departures** (*Required*): A list of routes and departure locations to watch
-- **name** (*Required*): The name of the sensor in HA.  When displaying on the map card HA generates the name using the first letters of the first 3 words.  So, 1<space>0<space>7<space>Bus shows as "107" on the map.  Different labels can be defined when displaying the sensor on an entiry card etc.
-- **route** (*Required*): The name of the gtfs route (if route_delimiter is used, the text before the delimiter)
-- **stopid** (*Required*): The stopid for the location you want etas for
-- **directionid** (*Optional*): Supports the direction_id from the GTFS feed trips.txt file, which indicates the direction of travel.  Use when the stops are direction neutral. **Caution:** Although added to the GTFS specification thein 2015, the direction_id field is still classified as *experimental*.  So there may be variations in implementation between providers or its use may be subject to change.
-- **icon** (*Optional*): The icon used in HA for the sensor (default is mdi:bus if non supplied)
-- **service_type** (*Optional*): The name used when created the "Next <service type>" attribute for the sensor in HA.  For example, Next Bus, Next Ferry etc etc (default is "Next Service" if non supplied)
 
 ## Screenshot
 
@@ -86,23 +111,13 @@ Configuration variables:
 
 ## Finding Feeds
 
-[The Mobility Database](https://database.mobilitydata.org/) is a good source for realtime
-gtfs feeds. Though the database is currently lacking a web interface, you can filter the [csv](https://bit.ly/catalogs-csv) on gtfs-rt in the data_type column and then further by location in order to find gtfs-rt feeds near you.
+[The Mobility Database](https://database.mobilitydata.org/) is a good source for realtime GTFS feeds. You can filter the [csv](https://bit.ly/catalogs-csv) on `gtfs-rt` in the `data_type` column and then further by location to find feeds near you.
 
-GTFS providers should also publish a zip file containing static data, including route and stop information. The same CSV file should contain a link to the static ZIP file. For example [Translink SEQ ZIP](https://gtfsrt.api.translink.com.au/GTFS/SEQ_GTFS.zip).  The route and stop IDs you need to configure the realtime feed in Home Assistant configuration are provided in this file.
+GTFS providers should also publish a zip file containing static data, including route and stop information. The same CSV file should contain a link to the static ZIP file. For example [Translink SEQ ZIP](https://gtfsrt.api.translink.com.au/GTFS/SEQ_GTFS.zip). The route and stop IDs you need are provided in this file.
 
 ## Troubleshooting
 
-As it can be time-consuming performing troubleshooting in Home Assistant, a test.py script is provided that is almost identical code but can be run in any python3 environment.  It uses an input yaml file that is in the same format as the configuration file used in Home Assistant, making it quick and easy to test many different GTFS-RT providers, routes and stop configurations (see test_translink.yaml for an example).  The output can optionally be redirected to a text file.
-
-Usage:
-```
-test.py -f <yaml file> -d INFO|DEBUG { -l <outfile log file> }
-```
-
-## Reporting an Issue
-
-1. Setup your logger to print debug messages for this component using:
+1. Enable debug logging:
 ```yaml
 logger:
   default: info
@@ -110,8 +125,13 @@ logger:
     custom_components.gtfs_rt: debug
 ```
 2. Restart Home Assistant
-3. Verify you're still having the issue
-4. File an issue in this Github Repository containing your HA log (Developer section > Info > Load Full Home Assistant Log)
-   * You can paste your log file at pastebin https://pastebin.com/ and submit a link.
-   * Please include details about your setup (Pi, NUC, etc, docker?, HASSOS?)
-   * The log file can also be found at `/<config_dir>/home-assistant.log`
+3. Check the logs at **Developer Tools > Logs** or `/<config_dir>/home-assistant.log`
+4. File an issue in this GitHub repository with your log output
+   * You can paste your log file at [pastebin](https://pastebin.com/) and submit a link
+   * Please include details about your setup (Pi, NUC, etc, Docker, HAOS)
+
+A standalone `test.py` script is also provided for testing feeds outside of Home Assistant:
+
+```
+test.py -f <yaml file> -d INFO|DEBUG { -l <outfile log file> }
+```
