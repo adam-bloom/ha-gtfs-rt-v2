@@ -1,0 +1,86 @@
+{
+    "config": {
+        "step": {
+            "user": {
+                "title": "GTFS Realtime Feed",
+                "description": "Configure the GTFS Realtime feed connection.",
+                "data": {
+                    "trip_update_url": "Trip Update URL",
+                    "vehicle_position_url": "Vehicle Position URL",
+                    "api_key": "API Key",
+                    "x_api_key": "X-API Key",
+                    "api_key_header": "API Key Header Name",
+                    "route_delimiter": "Route Delimiter"
+                }
+            },
+            "departures": {
+                "title": "Add Departure",
+                "description": "Configure a departure to monitor.",
+                "data": {
+                    "name": "Sensor Name",
+                    "route": "Route ID",
+                    "stopid": "Stop ID",
+                    "directionid": "Direction ID",
+                    "icon": "Icon",
+                    "add_another": "Add another departure"
+                }
+            }
+        },
+        "abort": {
+            "already_configured": "This feed is already configured."
+        },
+        "error": {
+            "cannot_connect": "Failed to connect to the GTFS-RT feed. Check the URL and credentials."
+        }
+    },
+    "options": {
+        "step": {
+            "init": {
+                "title": "GTFS Realtime Options",
+                "menu_options": {
+                    "settings": "General settings",
+                    "departures_list": "Manage departures",
+                    "add_departure": "Add a departure"
+                }
+            },
+            "settings": {
+                "title": "General Settings",
+                "data": {
+                    "update_interval": "Update interval (seconds)",
+                    "num_departures": "Number of departures to show"
+                }
+            },
+            "departures_list": {
+                "title": "Manage Departures",
+                "description": "Current departures:\n{departures}",
+                "data": {
+                    "departure": "Select a departure",
+                    "action": "Action"
+                }
+            },
+            "edit_departure": {
+                "title": "Edit Departure",
+                "data": {
+                    "name": "Sensor Name",
+                    "route": "Route ID",
+                    "stopid": "Stop ID",
+                    "directionid": "Direction ID",
+                    "icon": "Icon"
+                }
+            },
+            "add_departure": {
+                "title": "Add Departure",
+                "data": {
+                    "name": "Sensor Name",
+                    "route": "Route ID",
+                    "stopid": "Stop ID",
+                    "directionid": "Direction ID",
+                    "icon": "Icon"
+                }
+            }
+        },
+        "abort": {
+            "no_departures": "No departures configured."
+        }
+    }
+}
