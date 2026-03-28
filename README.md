@@ -2,7 +2,7 @@
 
 This integration provides real-time departure data for local transit systems that provide GTFS-RT feeds. Each sensor shows minutes until the next arrival, with attributes including the next several departures, vehicle positions, and more.
 
-Based on the excellent work previously done by @zacs and @phardy.
+Based on the excellent work previously done by @zacs, @phardy, and @mark1foley.
 
 ## Installation (HACS) - Recommended
 0. Have [HACS](https://hacs.xyz/) installed, this will allow you to easily update
